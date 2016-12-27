@@ -95,6 +95,26 @@ begin
         comb_operand1 = {32{rd_data1[31]}};
     end  // ASR with register
   end // reg_ops
+
+  /* ======== Load Store Operations ==============*/
+  // in case of most of load/store operations, offset value or register value
+  // needs to be added to the base register and data needs to be written to
+  // that particular register. Hence, we manipulate the operands and in ALU
+  // phase we calculate the address to which we need to load or store
+  // Instruction[24] is called P bit which specifies if we use post indexed
+  // addressing or pre indexed addressing
+  // Instruction[23] is called U bit which specifies whether we need to add
+  // the offset or subtract it
+  // Instruction[22] is called W bit which specifies if its an unsigned byte
+  // or word access
+  // Instruction[21] is called W bit, which when P=0 normal mem access is
+  // performed with W=0 and unprevileged access when W=1. When P=1, W=0 base
+  // is not updated, W=1 base is updated
+  // Instruction[20] is L which distinguishes between Load and store
+  /* ======== Load Store Operations ==============*/
+  else if (instruction[27:25] == 3'b010)
+  begin
+  end
 end
 
 always @(posedge clk)
