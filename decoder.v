@@ -240,6 +240,11 @@ begin
       end
     endcase
   end
+  else if (instruction[27:24] == 4'b0101)
+  begin
+    comb_operand1 = rd_data2;
+    comb_operand0 = {20'd0, instruction[11:0]};
+  end
 
 end
 
