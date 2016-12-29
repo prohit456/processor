@@ -14,9 +14,68 @@ output reg bitwise_op,
 output reg update_flags,
 output reg use_flags,
 output reg stall_if,
+output reg add,
+output reg mem_en,
+output reg mem_wr,
 output reg NOP);
 
 reg[31:0] comb_operand1;
+reg[31:0] comb_operand0;
+
+
+/* ========== ASR INPUTS ================*/
+reg[31:0] asr_data;
+reg[31:0] asr_shift;
+/* ========== ASR INPUTS ================*/
+
+/* ========== LSR INPUTS ================*/
+reg[31:0] lsr_data;
+reg[31:0] lsr_shift;
+/* ========== LSR INPUTS ================*/
+
+/* ========== ASL INPUTS ================*/
+reg[31:0] asl_data;
+reg[31:0] asl_shift;
+/* ========== ASL INPUTS ================*/
+
+/* ========== LSL INPUTS ================*/
+reg[31:0] lsl_data;
+reg[31:0] lsl_shift;
+/* ========== LSL INPUTS ================*/
+
+/* ========== ASR OUTPUTS ================*/
+wire[31:0] asr_out;
+/* ========== ASR OUTPUTS ================*/
+
+/* ========== LSR OUTPUTS ================*/
+wire[31:0] lsr_out;
+/* ========== LSR OUTPUTS ================*/
+
+/* ========== ASL OUTPUTS ================*/
+wire[31:0] asl_out;
+/* ========== ASL OUTPUTS ================*/
+
+/* ========== LSL OUTPUTS ================*/
+wire[31:0] lsl_out;
+/* ========== LSL OUTPUTS ================*/
+
+asr asr_inst(
+.data(asr_data), 
+.shift(asr_shift),
+.data_op(asr_out));
+
+lsr lsr_inst(
+.data(lsr_data), 
+.shift(lsr_shift),
+.data_op(lsr_out));
+
+lsl lsl_inst(
+.data(lsl_data), 
+.shift(lsl_shift),
+.data_op(lsl_out));
+
+
+
 
 // NOP is inserted if condition code does not satisfy the required condition
 // code
@@ -41,6 +100,12 @@ begin
   // since data can always be fetched independent of its usage
   rd_addr1 = instruction[3:0];
   rd_addr2 = instruction[11:8]; // is it always the case?
+  rd_addr2 = instruction[19:16]; // is it always the case?
+  mem_en = 1'b0; // initialization
+  mem_wr = 1'b0; // initialization
+  add    = 1'b0; // initialization
+
+
   // generate rotated operand
   if (instruction[27:25] == 3'b001)
   begin
@@ -63,38 +128,67 @@ begin
       15: comb_operand1 = (instruction[7:0] >> 15) | (instruction[7:0] << 17);
     endcase
   end
+
+
   else if (instruction[27:25] == 3'b000 )
   begin // reg_ops
     if (instruction[6:4] == 3'b000)
     begin // LSL with immediate
       //write code to generate carries
-      comb_operand1 = rd_data1 << instruction[11:7];
+      lsl_data = rd_data1;
+      lsl_shift = {26'd0, instruction[11:7]};
+      comb_operand1 = lsl_out;
+      //comb_operand1 = rd_data1 << instruction[11:7];
     end // LSL with immediate
+
     else if (instruction[7:4] == 4'h1)
     begin // LSL with register
-      comb_operand1 = rd_data1 << rd_data2;
+      lsl_data = rd_data1;
+      lsl_shift = rd_data2;
+      comb_operand1 = lsl_out;
+      //comb_operand1 = rd_data1 << rd_data2;
     end // LSL with register
+
     else if (instruction[6:4] == 3'b010)
     begin // LSR with immediate
-      comb_operand1 = rd_data1 >> instruction[11:7];
+      lsr_data = rd_data1;
+      lsr_shift = {26'd0, instruction[11:7]};
+      comb_operand1 = lsr_out;
+      //comb_operand1 = rd_data1 >> instruction[11:7];
     end // LSR with immediate
+
     else if (instruction[7:4] == 4'b0011)
     begin // LSR with immediate
-      comb_operand1 = rd_data1 >> rd_data2;
+      lsr_data = rd_data1;
+      lsr_shift = rd_data2;
+      comb_operand1 = lsr_out;
+      //comb_operand1 = rd_data1 >> rd_data2;
     end // LSR with immediate
+
     else if (instruction[6:4] == 3'b100)
     begin // ASR with immediate
-      comb_operand1 = {({32{rd_data1[31]}} << (32 - instruction[11:7])) | rd_data1 >> instruction[11:7]};
+      asr_data = rd_data1;
+      asr_shift = {26'd0, instruction[11:7]};
+      comb_operand1 = asr_out;
+      //comb_operand1 = {({32{rd_data1[31]}} << (32 - instruction[11:7])) | rd_data1 >> instruction[11:7]};
       //comb_operand1 = {32{1'b1}}  | (rd_data1 >> instruction[11:7]);
     end // ASR with immediate
+
     else if (instruction[7:4] == 4'b0101)
     begin // ASR with register 
-      if (rd_data2 < 32)
-        comb_operand1 = ({32{rd_data1[31]}} << (32 - rd_data2)) | (rd_data1 >> rd_data2);
-      else
-        comb_operand1 = {32{rd_data1[31]}};
+      asr_data = rd_data1;
+      asr_shift = rd_data2;
+      comb_operand1 = asr_out;
+      //if (rd_data2 < 32)
+      //  comb_operand1 = ({32{rd_data1[31]}} << (32 - rd_data2)) | (rd_data1 >> rd_data2);
+      //else
+      //  comb_operand1 = {32{rd_data1[31]}};
+
     end  // ASR with register
   end // reg_ops
+
+
+
 
   /* ======== Load Store Operations ==============*/
   // in case of most of load/store operations, offset value or register value
@@ -112,14 +206,29 @@ begin
   // is not updated, W=1 base is updated
   // Instruction[20] is L which distinguishes between Load and store
   /* ======== Load Store Operations ==============*/
-  else if (instruction[27:25] == 3'b010)
+  else if (instruction[27:24] == 4'b0101)
   begin
+    mem_en = 1'b1;
+    mem_wr = instruction[20];
+    comb_operand1 = rd_data2;
+    comb_operand0 = {20'd0, instruction[11:0]};
+    add = instruction[23];
   end
+  else if (instruction[27:24] == 4'b0111)
+  begin
+    mem_en = 1'b1;
+    mem_wr = instruction[20];
+    comb_operand1 = rd_data2;
+    comb_operand0 = rd_data1;
+    add = instruction[23];
+  end
+
 end
 
 always @(posedge clk)
 begin
   operand1 <= #1 comb_operand1;
+  operand0 <= #1 comb_operand0;
 end
 
 
@@ -131,3 +240,39 @@ end
 
 
 endmodule
+
+
+/* ============ Arithmetic shift right ================*/
+module asr(input[31:0] data, input[31:0] shift, output reg[31:0] data_op);
+
+always @(*)
+begin
+  if (shift < 32)
+    data_op = ({32{data[31]}} << (32 - shift)) | (data >> shift);
+  else
+    data_op = {32{data[31]}};
+
+end
+endmodule
+/* ============ Arithmetic shift right ================*/
+
+
+/* ============ Logical shift right ================*/
+module lsr(input[31:0] data, input[31:0] shift, output reg[31:0] data_op);
+
+always @(*)
+begin
+  data_op = data >> shift; 
+end
+endmodule
+/* ============ Logical shift right ================*/
+
+/* ============ Logical shift left ================*/
+module lsl(input[31:0] data, input[31:0] shift, output reg[31:0] data_op);
+
+always @(*)
+begin
+  data_op = data << shift; 
+end
+endmodule
+/* ============ Logical shift left ================*/
