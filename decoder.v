@@ -214,13 +214,31 @@ begin
     comb_operand0 = {20'd0, instruction[11:0]};
     add = instruction[23];
   end
-  else if (instruction[27:24] == 4'b0111)
+  else if ({instruction[27:24], instruction[4]} == 5'b01110)
   begin
     mem_en = 1'b1;
     mem_wr = instruction[20];
-    comb_operand1 = rd_data2;
-    comb_operand0 = rd_data1;
     add = instruction[23];
+    case (instruction[6:5])
+      2'b00 : begin
+        lsl_data = rd_data1;
+        lsl_shift = {27'd0, instruction[11:7]};
+        comb_operand1 = lsl_out;
+      end
+      2'b01 : begin
+        lsr_data = rd_data1;
+        lsr_shift = (instruction[11:7] == 0) ? 32'd32 : {27'd0, instruction[11:7]};
+        comb_operand1 = lsr_out;
+      end
+      2'b10 : begin
+        asr_data = rd_data1;
+        asr_shift = (instruction[11:7] == 0) ? 32'd32 : {27'd0, instruction[11:7]};
+        comb_operand1 = asr_out;
+      end
+      2'b11 : begin
+        // rotation operation is pending
+      end
+    endcase
   end
 
 end
@@ -276,3 +294,7 @@ begin
 end
 endmodule
 /* ============ Logical shift left ================*/
+
+
+/* ============ Rotation Block ================*/
+/* ============ Rotation Block ================*/
