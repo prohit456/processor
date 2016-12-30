@@ -18,6 +18,17 @@ wire cout;
 wire[31:0] adder_out;
 reg[31:0] operand0;
 reg[31:0] operand1;
+wire[31:0] and_op;
+wire[31:0] or_op;
+wire[31:0] not_op;
+wire[31:0] xor_op;
+
+/* ========== Logical Operations===========================*/
+assign and_op = operand0 & operand1;
+assign or_op = operand0 | operand1;
+assign xor_op = operand0 ^ operand1;
+/* ========== Logical Operations===========================*/
+
 
 /* ========== Addition and subtraction ====================*/
 adder adder_inst(
